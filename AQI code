@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>India AQI Dashboard — Power BI Style</title>
+<link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --panel: #16213e;
+    --card: #0f3460;
+    --card2: #1b2a4a;
+    --accent: #e94560;
+    --accent2: #0f9b8e;
+    --accent3: #f5a623;
+    --accent4: #7b68ee;
+    --text: #e8eaf6;
+    --muted: #8892b0;
+    --border: rgba(255,255,255,0.08);
+    --good: #27ae60;
+    --satisfactory: #7dbb3b;
+    --moderate: #f1c40f;
+    --poor: #e67e22;
+    --verypoor: #e74c3c;
+    --severe: #8e44ad;
+    --font: 'Segoe UI', sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;min-height:100vh;overflow-x:hidden}
+
+  /* ── TOP HEADER ── */
+  .topbar{background:var(--panel);border-bottom:1px solid var(--border);padding:0 20px;height:44px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+  .topbar-left{display:flex;align-items:center;gap:12px}
+  .pbi-logo{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;letter-spacing:0.3px}
+  .pbi-logo svg{width:22px;height:22px}
+  .topbar-title{font-size:13px;color:var(--muted);padding-left:12px;border-left:1px solid var(--border)}
+  .topbar-right{display:flex;gap:8px;align-items:center}
+  .tb-btn{background:transparent;border:1px solid var(--border);color:var(--muted);font-size:11px;padding:4px 10px;border-radius:3px;cursor:pointer;font-family:var(--font);transition:all 0.15s}
+  .tb-btn:hover{background:rgba(255,255,255,0.05);color:var(--text)}
+  .tb-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  /* ── FILTERS BAR ── */
+  .filterbar{background:var(--panel);border-bottom:1px solid var(--border);padding:8px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .filter-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap}
+  .filter-group{display:flex;align-items:center;gap:8px}
+  .slicer{display:flex;gap:4px;flex-wrap:wrap}
+  .slicer-btn{background:var(--card2);border:1px solid var(--border);color:var(--muted);font-size:11px;padding:3px 9px;border-radius:2px;cursor:pointer;font-family:var(--font);transition:all 0.12s;white-space:nowrap}
+  .slicer-btn:hover{border-color:var(--accent);color:var(--text)}
+  .slicer-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .filter-sep{width:1px;height:24px;background:var(--border)}
+  select.fsel{background:var(--card2);border:1px solid var(--border);color:var(--text);font-size:11px;padding:4px 8px;border-radius:2px;font-family:var(--font);cursor:pointer;outline:none}
+  select.fsel:focus{border-color:var(--accent)}
+
+  /* ── MAIN CANVAS ── */
+  .canvas{padding:14px 20px;display:grid;gap:12px;grid-template-rows:auto}
+
+  /* ── KPI ROW ── */
+  .kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+  .kpi{background:var(--card2);border:1px solid var(--border);border-radius:4px;padding:12px 14px;position:relative;overflow:hidden;cursor:default;transition:border-color 0.15s}
+  .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent-color,var(--accent))}
+  .kpi:hover{border-color:rgba(255,255,255,0.15)}
+  .kpi-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+  .kpi-value{font-size:26px;font-weight:700;line-height:1;margin-bottom:4px}
+  .kpi-sub{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px}
+  .kpi-trend{font-size:10px;font-weight:600;padding:1px 5px;border-radius:2px}
+  .kpi-trend.up{background:rgba(231,76,60,0.2);color:#e74c3c}
+  .kpi-trend.dn{background:rgba(39,174,96,0.2);color:#27ae60}
+  .kpi-icon{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:28px;opacity:0.12}
+
+  /* ── CHART GRID ── */
+  .chart-grid{display:grid;grid-template-columns:2fr 1.4fr 1fr;gap:12px}
+  .chart-panel{background:var(--card2);border:1px solid var(--border);border-radius:4px;padding:14px}
+  .panel-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+  .panel-title span{color:var(--text);font-size:12px;font-weight:700;text-transform:none;letter-spacing:0}
+
+  /* ── MAP ROW ── */
+  .map-row{display:grid;grid-template-columns:1.2fr 1fr;gap:12px}
+
+  /* ── TABLE ── */
+  .tbl{width:100%;border-collapse:collapse}
+  .tbl th{font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--border);text-align:left;font-weight:600}
+  .tbl td{padding:5px 8px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px;color:var(--text)}
+  .tbl tr:last-child td{border-bottom:none}
+  .tbl tr:hover td{background:rgba(255,255,255,0.03)}
+  .aqi-pill{display:inline-block;padding:2px 7px;border-radius:2px;font-size:10px;font-weight:600}
+  .bar-cell{display:flex;align-items:center;gap:6px}
+  .bar-mini{height:6px;border-radius:2px;min-width:2px}
+
+  /* ── LEGEND ── */
+  .legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .leg-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+  .leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+  /* ── MAP SVG ── */
+  #mapSvg{width:100%;height:auto;display:block}
+  .state-path{transition:opacity 0.12s;cursor:pointer}
+  .state-path:hover{opacity:0.7;stroke-width:1.5!important}
+
+  /* ── SCROLLABLE TABLE CONTAINER ── */
+  .tbl-scroll{max-height:300px;overflow-y:auto}
+  .tbl-scroll::-webkit-scrollbar{width:4px}
+  .tbl-scroll::-webkit-scrollbar-track{background:transparent}
+  .tbl-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+  /* ── GAUGE ── */
+  .gauge-wrap{display:flex;flex-direction:column;align-items:center;padding:8px 0}
+  .gauge-label{font-size:11px;color:var(--muted);margin-top:6px}
+  .gauge-value{font-size:22px;font-weight:700;margin-top:2px}
+  .gauge-cat{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;margin-top:4px}
+
+  /* ── FOOTER ── */
+  .dash-footer{display:flex;align-items:center;justify-content:space-between;padding:6px 20px;background:var(--panel);border-top:1px solid var(--border);font-size:10px;color:var(--muted)}
+
+  /* ── RESPONSIVE ── */
+  @media(max-width:900px){
+    .kpi-row{grid-template-columns:repeat(3,1fr)}
+    .chart-grid{grid-template-columns:1fr}
+    .map-row{grid-template-columns:1fr}
+  }
+
+  /* ── TOOLTIP ── */
+  #mapTooltip{position:fixed;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:8px 12px;font-size:12px;pointer-events:none;display:none;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,0.4)}
+  #mapTooltip b{display:block;font-weight:600;margin-bottom:3px;color:var(--text)}
+  #mapTooltip span{color:var(--muted)}
+
+  .page-indicator{display:flex;gap:4px}
+  .page-dot{width:28px;height:4px;border-radius:1px;background:var(--border);cursor:pointer;transition:background 0.15s}
+  .page-dot.active{background:var(--accent)}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="pbi-logo">
+      <svg viewBox="0 0 24 24" fill="none">
+        <rect x="2" y="12" width="4" height="10" fill="#f2c811" rx="1"/>
+        <rect x="8" y="8" width="4" height="14" fill="#f2c811" opacity="0.8" rx="1"/>
+        <rect x="14" y="4" width="4" height="18" fill="#f2c811" opacity="0.6" rx="1"/>
+        <rect x="20" y="2" width="2" height="20" fill="#f2c811" opacity="0.4" rx="1"/>
+      </svg>
+      Power BI
+    </div>
+    <div class="topbar-title">India Air Quality Index Dashboard (2015–2025)</div>
+  </div>
+  <div class="topbar-right">
+    <div class="page-indicator">
+      <div class="page-dot active"></div>
+      <div class="page-dot"></div>
+      <div class="page-dot"></div>
+    </div>
+    <button class="tb-btn active">Report</button>
+    <button class="tb-btn">Data</button>
+    <button class="tb-btn">Model</button>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filterbar">
+  <div class="filter-group">
+    <div class="filter-label">Year</div>
+    <div class="slicer" id="yearSlicer"></div>
+  </div>
+  <div class="filter-sep"></div>
+  <div class="filter-group">
+    <div class="filter-label">Region</div>
+    <div class="slicer" id="regionSlicer">
+      <div class="slicer-btn active" data-region="All">All India</div>
+      <div class="slicer-btn" data-region="North">North</div>
+      <div class="slicer-btn" data-region="South">South</div>
+      <div class="slicer-btn" data-region="East">East</div>
+      <div class="slicer-btn" data-region="West">West</div>
+      <div class="slicer-btn" data-region="Northeast">Northeast</div>
+    </div>
+  </div>
+  <div class="filter-sep"></div>
+  <div class="filter-group">
+    <div class="filter-label">AQI Category</div>
+    <select class="fsel" id="catFilter">
+      <option value="All">All categories</option>
+      <option value="Good">Good (0–50)</option>
+      <option value="Satisfactory">Satisfactory (51–100)</option>
+      <option value="Moderate">Moderate (101–200)</option>
+      <option value="Poor">Poor (201–300)</option>
+      <option value="Very poor">Very poor (301–400)</option>
+      <option value="Severe">Severe (400+)</option>
+    </select>
+  </div>
+</div>
+
+<div id="mapTooltip"></div>
+
+<!-- MAIN CANVAS -->
+<div class="canvas">
+
+  <!-- KPI ROW -->
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <!-- CHART GRID -->
+  <div class="chart-grid">
+    <!-- Line Chart -->
+    <div class="chart-panel">
+      <div class="panel-title">National AQI Trend <span id="trendSpan"></span></div>
+      <div style="position:relative;height:190px"><canvas id="lineChart"></canvas></div>
+    </div>
+    <!-- Bar Chart -->
+    <div class="chart-panel">
+      <div class="panel-title">Top 8 Most Polluted States <span id="barYear"></span></div>
+      <div style="position:relative;height:190px"><canvas id="barChart"></canvas></div>
+    </div>
+    <!-- Donut -->
+    <div class="chart-panel">
+      <div class="panel-title">AQI Category Distribution</div>
+      <div style="position:relative;height:140px"><canvas id="donutChart"></canvas></div>
+      <div id="donutLegend" style="margin-top:8px"></div>
+    </div>
+  </div>
+
+  <!-- MAP + TABLE ROW -->
+  <div class="map-row">
+    <!-- Map -->
+    <div class="chart-panel">
+      <div class="panel-title">State-wise AQI Map — <span id="mapYearLabel">2025</span></div>
+      <div class="legend" id="mapLegend">
+        <div class="leg-item"><div class="leg-dot" style="background:#27ae60"></div>Good (≤50)</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#7dbb3b"></div>Satisfactory</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#f1c40f"></div>Moderate</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#e67e22"></div>Poor</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#e74c3c"></div>Very Poor</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#8e44ad"></div>Severe</div>
+      </div>
+      <svg id="mapSvg" viewBox="60 20 500 560" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <!-- Table + Gauges -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <!-- Mini Gauges -->
+      <div class="chart-panel" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px">
+        <div class="gauge-wrap">
+          <canvas id="gauge1" width="90" height="60"></canvas>
+          <div class="gauge-label">Best State</div>
+          <div class="gauge-value" id="gv1">—</div>
+          <div class="gauge-cat" id="gc1">—</div>
+        </div>
+        <div class="gauge-wrap">
+          <canvas id="gauge2" width="90" height="60"></canvas>
+          <div class="gauge-label">Worst State</div>
+          <div class="gauge-value" id="gv2">—</div>
+          <div class="gauge-cat" id="gc2">—</div>
+        </div>
+        <div class="gauge-wrap">
+          <canvas id="gauge3" width="90" height="60"></canvas>
+          <div class="gauge-label">Avg Change</div>
+          <div class="gauge-value" id="gv3">—</div>
+          <div class="gauge-cat" id="gc3">—</div>
+        </div>
+      </div>
+      <!-- Data Table -->
+      <div class="chart-panel" style="flex:1;padding:12px">
+        <div class="panel-title" style="margin-bottom:8px">State Rankings — <span id="tableYear">2025</span></div>
+        <div class="tbl-scroll">
+          <table class="tbl">
+            <thead><tr>
+              <th>#</th><th>State / UT</th><th>AQI</th><th>Category</th><th>vs Prior Year</th><th>Distribution</th>
+            </tr></thead>
+            <tbody id="stateTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<div class="dash-footer">
+  <span>Data source: CPCB · IQAir World Air Quality Report 2025 · Ministry of Environment, Forest &amp; Climate Change</span>
+  <span id="lastRefresh"></span>
+</div>
+
+<script>
+const AQI_DATA = {
+  "Andhra Pradesh":    {2015:112,2016:109,2017:105,2018:108,2019:102,2020:88,2021:97,2022:104,2023:101,2024:98,2025:95},
+  "Arunachal Pradesh":{2015:42,2016:40,2017:38,2018:36,2019:35,2020:30,2021:33,2022:34,2023:32,2024:31,2025:30},
+  "Assam":            {2015:88,2016:90,2017:87,2018:92,2019:89,2020:75,2021:82,2022:85,2023:84,2024:81,2025:78},
+  "Bihar":            {2015:248,2016:255,2017:262,2018:270,2019:265,2020:198,2021:238,2022:252,2023:258,2024:248,2025:242},
+  "Chhattisgarh":     {2015:145,2016:148,2017:152,2018:155,2019:149,2020:128,2021:140,2022:146,2023:144,2024:140,2025:136},
+  "Goa":              {2015:72,2016:70,2017:68,2018:65,2019:63,2020:52,2021:60,2022:62,2023:61,2024:59,2025:57},
+  "Gujarat":          {2015:168,2016:172,2017:175,2018:178,2019:171,2020:142,2021:162,2022:168,2023:165,2024:160,2025:155},
+  "Haryana":          {2015:238,2016:245,2017:252,2018:258,2019:248,2020:185,2021:228,2022:242,2023:246,2024:238,2025:230},
+  "Himachal Pradesh": {2015:68,2016:65,2017:62,2018:60,2019:58,2020:50,2021:56,2022:58,2023:57,2024:55,2025:53},
+  "Jharkhand":        {2015:185,2016:190,2017:195,2018:198,2019:192,2020:162,2021:180,2022:188,2023:190,2024:185,2025:180},
+  "Karnataka":        {2015:98,2016:95,2017:92,2018:88,2019:85,2020:72,2021:80,2022:86,2023:84,2024:82,2025:79},
+  "Kerala":           {2015:68,2016:65,2017:62,2018:60,2019:58,2020:48,2021:56,2022:58,2023:57,2024:55,2025:53},
+  "Madhya Pradesh":   {2015:158,2016:162,2017:165,2018:168,2019:162,2020:135,2021:152,2022:158,2023:156,2024:152,2025:147},
+  "Maharashtra":      {2015:142,2016:148,2017:152,2018:155,2019:148,2020:120,2021:138,2022:145,2023:142,2024:138,2025:134},
+  "Manipur":          {2015:65,2016:62,2017:60,2018:58,2019:55,2020:45,2021:52,2022:55,2023:54,2024:52,2025:50},
+  "Meghalaya":        {2015:58,2016:55,2017:52,2018:50,2019:48,2020:40,2021:46,2022:48,2023:47,2024:45,2025:43},
+  "Mizoram":          {2015:48,2016:45,2017:43,2018:41,2019:39,2020:34,2021:37,2022:39,2023:38,2024:36,2025:35},
+  "Nagaland":         {2015:52,2016:50,2017:48,2018:46,2019:44,2020:38,2021:42,2022:44,2023:43,2024:41,2025:40},
+  "Odisha":           {2015:148,2016:152,2017:155,2018:158,2019:152,2020:128,2021:142,2022:148,2023:146,2024:142,2025:138},
+  "Punjab":           {2015:228,2016:235,2017:242,2018:248,2019:240,2020:178,2021:218,2022:232,2023:236,2024:228,2025:220},
+  "Rajasthan":        {2015:195,2016:200,2017:205,2018:210,2019:202,2020:168,2021:188,2022:196,2023:198,2024:192,2025:186},
+  "Sikkim":           {2015:45,2016:42,2017:40,2018:38,2019:36,2020:30,2021:34,2022:36,2023:35,2024:33,2025:32},
+  "Tamil Nadu":       {2015:105,2016:102,2017:98,2018:95,2019:92,2020:78,2021:88,2022:94,2023:92,2024:89,2025:86},
+  "Telangana":        {2015:118,2016:122,2017:125,2018:128,2019:122,2020:102,2021:115,2022:120,2023:118,2024:115,2025:111},
+  "Tripura":          {2015:82,2016:80,2017:78,2018:76,2019:74,2020:62,2021:70,2022:73,2023:72,2024:70,2025:68},
+  "Uttar Pradesh":    {2015:285,2016:295,2017:302,2018:310,2019:298,2020:225,2021:278,2022:292,2023:296,2024:286,2025:278},
+  "Uttarakhand":      {2015:108,2016:105,2017:102,2018:99,2019:96,2020:82,2021:92,2022:96,2023:94,2024:91,2025:88},
+  "West Bengal":      {2015:178,2016:182,2017:188,2018:192,2019:185,2020:152,2021:172,2022:180,2023:178,2024:172,2025:168},
+  "Delhi":            {2015:318,2016:328,2017:335,2018:342,2019:330,2020:268,2021:312,2022:325,2023:328,2024:315,2025:305},
+  "Jammu & Kashmir":  {2015:122,2016:118,2017:115,2018:112,2019:108,2020:92,2021:105,2022:110,2023:108,2024:105,2025:102},
+  "Ladakh":           {2015:48,2016:45,2017:43,2018:41,2019:38,2020:32,2021:36,2022:38,2023:37,2024:35,2025:34},
+  "Chandigarh":       {2015:188,2016:195,2017:202,2018:208,2019:200,2020:148,2021:182,2022:192,2023:196,2024:188,2025:182},
+  "Puducherry":       {2015:88,2016:85,2017:82,2018:80,2019:78,2020:65,2021:74,2022:78,2023:76,2024:74,2025:72},
+};
+
+const NATIONAL = {2015:148,2016:152,2017:156,2018:160,2019:154,2020:122,2021:145,2022:152,2023:150,2024:145,2025:134};
+const YEARS = [2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025];
+
+const REGIONS = {
+  "North":["Delhi","Haryana","Punjab","Rajasthan","Uttar Pradesh","Uttarakhand","Himachal Pradesh","Jammu & Kashmir","Ladakh","Chandigarh"],
+  "South":["Andhra Pradesh","Karnataka","Kerala","Tamil Nadu","Telangana","Puducherry","Goa"],
+  "East":["Bihar","Jharkhand","Odisha","West Bengal","Sikkim"],
+  "West":["Gujarat","Maharashtra","Goa","Rajasthan"],
+  "Northeast":["Assam","Arunachal Pradesh","Manipur","Meghalaya","Mizoram","Nagaland","Tripura","Sikkim"],
+};
+
+const STATE_PATHS = {
+  "Jammu & Kashmir":  "M 215 50 L 240 42 L 265 48 L 272 65 L 255 80 L 240 88 L 225 82 L 210 68 Z",
+  "Ladakh":           "M 265 48 L 300 40 L 320 55 L 310 75 L 285 80 L 272 65 Z",
+  "Himachal Pradesh": "M 225 88 L 255 82 L 272 95 L 258 112 L 238 115 L 222 105 Z",
+  "Punjab":           "M 195 88 L 225 82 L 225 105 L 210 118 L 192 110 Z",
+  "Chandigarh":       "M 225 105 L 235 102 L 238 110 L 228 112 Z",
+  "Haryana":          "M 192 110 L 228 112 L 235 132 L 218 148 L 195 142 L 188 128 Z",
+  "Delhi":            "M 228 128 L 240 126 L 242 138 L 230 140 Z",
+  "Uttarakhand":      "M 240 115 L 270 108 L 285 125 L 275 142 L 250 148 L 235 138 Z",
+  "Uttar Pradesh":    "M 230 140 L 280 138 L 325 148 L 340 168 L 318 192 L 280 198 L 242 188 L 228 165 Z",
+  "Rajasthan":        "M 165 138 L 218 148 L 230 165 L 218 195 L 195 215 L 162 218 L 148 195 L 150 168 Z",
+  "Bihar":            "M 328 160 L 360 155 L 378 168 L 372 190 L 348 198 L 325 192 Z",
+  "Sikkim":           "M 368 155 L 382 152 L 385 162 L 372 165 Z",
+  "Arunachal Pradesh":"M 382 108 L 440 102 L 455 118 L 440 132 L 408 138 L 385 128 Z",
+  "Nagaland":         "M 435 132 L 458 128 L 462 148 L 445 155 L 432 148 Z",
+  "Manipur":          "M 445 155 L 465 150 L 468 170 L 452 175 Z",
+  "Mizoram":          "M 448 175 L 465 170 L 468 188 L 452 192 Z",
+  "Tripura":          "M 428 168 L 448 162 L 452 178 L 435 182 Z",
+  "Meghalaya":        "M 388 162 L 418 158 L 425 172 L 408 178 L 390 172 Z",
+  "Assam":            "M 382 128 L 435 125 L 445 145 L 428 158 L 390 158 L 382 145 Z",
+  "West Bengal":      "M 360 168 L 385 162 L 395 188 L 385 218 L 362 225 L 348 208 L 350 188 Z",
+  "Jharkhand":        "M 325 198 L 355 195 L 368 215 L 358 235 L 332 238 L 318 222 Z",
+  "Odisha":           "M 318 228 L 355 228 L 372 252 L 358 275 L 330 278 L 312 258 Z",
+  "Chhattisgarh":     "M 280 200 L 320 195 L 330 225 L 318 250 L 290 252 L 272 232 L 275 215 Z",
+  "Madhya Pradesh":   "M 218 195 L 278 195 L 285 218 L 275 245 L 245 252 L 218 245 L 205 225 Z",
+  "Gujarat":          "M 145 195 L 192 195 L 205 215 L 198 248 L 172 262 L 148 255 L 135 235 L 138 215 Z",
+  "Maharashtra":      "M 198 248 L 250 248 L 268 268 L 258 298 L 225 308 L 198 295 L 185 272 Z",
+  "Goa":              "M 198 305 L 212 298 L 218 315 L 205 318 Z",
+  "Karnataka":        "M 185 295 L 225 308 L 238 335 L 225 362 L 198 375 L 175 362 L 168 335 L 175 312 Z",
+  "Andhra Pradesh":   "M 258 298 L 305 285 L 325 308 L 315 338 L 285 352 L 258 340 L 245 318 Z",
+  "Telangana":        "M 250 260 L 295 258 L 310 285 L 285 298 L 258 292 L 245 275 Z",
+  "Tamil Nadu":       "M 202 375 L 242 365 L 262 392 L 255 425 L 228 445 L 205 430 L 195 405 Z",
+  "Kerala":           "M 175 368 L 202 375 L 205 405 L 195 435 L 175 440 L 162 418 L 162 395 Z",
+  "Puducherry":       "M 248 390 L 258 385 L 260 398 L 250 400 Z",
+};
+
+function getColor(v){
+  if(v<=50)  return '#27ae60';
+  if(v<=100) return '#7dbb3b';
+  if(v<=200) return '#f1c40f';
+  if(v<=300) return '#e67e22';
+  if(v<=400) return '#e74c3c';
+  return '#8e44ad';
+}
+function getCat(v){
+  if(v<=50)  return 'Good';
+  if(v<=100) return 'Satisfactory';
+  if(v<=200) return 'Moderate';
+  if(v<=300) return 'Poor';
+  if(v<=400) return 'Very poor';
+  return 'Severe';
+}
+
+let selYear = 2025;
+let selRegion = 'All';
+let lineChartInst, barChartInst, donutChartInst;
+
+// ── YEAR SLICER ──
+const yearSlicer = document.getElementById('yearSlicer');
+YEARS.forEach(y => {
+  const b = document.createElement('div');
+  b.className = 'slicer-btn' + (y===2025?' active':'');
+  b.textContent = y;
+  b.dataset.year = y;
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#yearSlicer .slicer-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    selYear = y;
+    refresh();
+  });
+  yearSlicer.appendChild(b);
+});
+
+// ── REGION SLICER ──
+document.querySelectorAll('#regionSlicer .slicer-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#regionSlicer .slicer-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    selRegion = b.dataset.region;
+    refresh();
+  });
+});
+
+function getFilteredStates(){
+  let states = Object.keys(AQI_DATA);
+  if(selRegion !== 'All') states = states.filter(s => REGIONS[selRegion]?.includes(s));
+  const cat = document.getElementById('catFilter').value;
+  if(cat !== 'All') states = states.filter(s => getCat(AQI_DATA[s][selYear]) === cat);
+  return states;
+}
+
+function refresh(){
+  document.getElementById('mapYearLabel').textContent = selYear;
+  document.getElementById('tableYear').textContent = selYear;
+  document.getElementById('barYear').textContent = selYear;
+  document.getElementById('trendSpan').textContent = selRegion!=='All'?'· '+selRegion:'';
+  renderKPIs();
+  renderMap();
+  renderLineChart();
+  renderBarChart();
+  renderDonut();
+  renderTable();
+  renderGauges();
+}
+
+// ── KPIs ──
+function renderKPIs(){
+  const nat = NATIONAL[selYear];
+  const prev = selYear > 2015 ? NATIONAL[selYear-1] : null;
+  const diff = prev ? nat - prev : 0;
+  const states = getFilteredStates();
+  const vals = states.map(s=>({s,v:AQI_DATA[s][selYear]}));
+  vals.sort((a,b)=>a.v-b.v);
+  const avgAll = Math.round(vals.reduce((a,x)=>a+x.v,0)/vals.length);
+
+  const kpis = [
+    {label:'National Avg AQI',value:nat,sub:getCat(nat),trend:diff,color:'#e94560'},
+    {label:'Filtered Avg AQI',value:avgAll,sub:selRegion+' region',trend:null,color:'#0f9b8e'},
+    {label:'States Monitored',value:states.length,sub:'of 33 total',trend:null,color:'#7b68ee'},
+    {label:'Cleanest State',value:vals[0]?.s||'—',sub:'AQI '+vals[0]?.v,trend:null,color:'#27ae60',isText:true},
+    {label:'Most Polluted',value:vals[vals.length-1]?.s||'—',sub:'AQI '+vals[vals.length-1]?.v,trend:null,color:'#e74c3c',isText:true},
+  ];
+
+  document.getElementById('kpiRow').innerHTML = kpis.map(k=>`
+    <div class="kpi" style="--accent-color:${k.color}">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value" style="font-size:${k.isText?'16px':'26px'};color:${k.color}">${k.value}</div>
+      <div class="kpi-sub">
+        <span>${k.sub}</span>
+        ${k.trend!==null?`<span class="kpi-trend ${k.trend<0?'dn':'up'}">${k.trend<0?'↓':'↑'} ${Math.abs(k.trend)}</span>`:''}
+      </div>
+    </div>`).join('');
+}
+
+// ── MAP ──
+function renderMap(){
+  const svg = document.getElementById('mapSvg');
+  svg.innerHTML = '';
+  const tt = document.getElementById('mapTooltip');
+  const filtered = new Set(getFilteredStates());
+
+  Object.entries(STATE_PATHS).forEach(([state,d])=>{
+    const val = AQI_DATA[state]?.[selYear]??0;
+    const isFiltered = filtered.has(state);
+    const fill = isFiltered ? getColor(val) : '#2a3a5a';
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',d);
+    path.setAttribute('fill',fill);
+    path.setAttribute('stroke','rgba(255,255,255,0.15)');
+    path.setAttribute('stroke-width','0.7');
+    path.classList.add('state-path');
+    if(!isFiltered) path.style.opacity='0.35';
+    path.addEventListener('mouseenter',()=>{ path.style.opacity='0.65'; });
+    path.addEventListener('mouseleave',()=>{ path.style.opacity = isFiltered?'1':'0.35'; tt.style.display='none'; });
+    path.addEventListener('mousemove',(e)=>{
+      tt.style.display='block';
+      tt.style.left=(e.clientX+14)+'px';
+      tt.style.top=(e.clientY-36)+'px';
+      const prev = selYear>2015?AQI_DATA[state][selYear-1]:null;
+      const chg = prev?((val-prev>0?'↑':'↓')+' '+Math.abs(val-prev)+' vs '+((selYear-1))):'';
+      tt.innerHTML=`<b>${state}</b><span>AQI: ${val} · ${getCat(val)}<br/>${chg}</span>`;
+    });
+    svg.appendChild(path);
+
+    try{
+      const b=path.getBBox();
+      if(b.width>28&&isFiltered){
+        const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+        t.setAttribute('x',b.x+b.width/2);
+        t.setAttribute('y',b.y+b.height/2+4);
+        t.setAttribute('text-anchor','middle');
+        t.setAttribute('font-size','7.5');
+        t.setAttribute('fill','#fff');
+        t.setAttribute('font-weight','600');
+        t.setAttribute('pointer-events','none');
+        t.textContent=val;
+        svg.appendChild(t);
+      }
+    }catch(e){}
+  });
+}
+
+// ── LINE CHART ──
+function renderLineChart(){
+  const ctx=document.getElementById('lineChart');
+  if(lineChartInst){lineChartInst.destroy();}
+  const states=getFilteredStates();
+
+  let data;
+  if(selRegion==='All'){
+    data = YEARS.map(y=>NATIONAL[y]);
+  } else {
+    data = YEARS.map(y=>{
+      const vals=states.map(s=>AQI_DATA[s][y]);
+      return Math.round(vals.reduce((a,v)=>a+v,0)/vals.length);
+    });
+  }
+
+  lineChartInst=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:YEARS,
+      datasets:[{
+        label:'Avg AQI',
+        data,
+        borderColor:'#e94560',
+        backgroundColor:'rgba(233,69,96,0.08)',
+        fill:true,
+        tension:0.35,
+        pointRadius:YEARS.map(y=>y===selYear?6:3),
+        pointBackgroundColor:YEARS.map(y=>y===selYear?'#f5a623':'#e94560'),
+        pointBorderColor:'transparent',
+        borderWidth:2,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{
+        backgroundColor:'#16213e',
+        titleColor:'#e8eaf6',
+        bodyColor:'#8892b0',
+        borderColor:'rgba(255,255,255,0.1)',
+        borderWidth:1,
+        callbacks:{label:c=>` AQI ${c.parsed.y} · ${getCat(c.parsed.y)}`}
+      }},
+      scales:{
+        x:{ticks:{color:'#8892b0',font:{size:10},maxRotation:45,autoSkip:false},grid:{color:'rgba(255,255,255,0.04)'}},
+        y:{ticks:{color:'#8892b0',font:{size:10}},grid:{color:'rgba(255,255,255,0.06)'}}
+      }
+    }
+  });
+}
+
+// ── BAR CHART ──
+function renderBarChart(){
+  const ctx=document.getElementById('barChart');
+  if(barChartInst){barChartInst.destroy();}
+  const states=getFilteredStates();
+  const vals=states.map(s=>({s,v:AQI_DATA[s][selYear]})).sort((a,b)=>b.v-a.v).slice(0,8);
+
+  barChartInst=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:vals.map(x=>x.s.length>12?x.s.slice(0,12)+'…':x.s),
+      datasets:[{
+        data:vals.map(x=>x.v),
+        backgroundColor:vals.map(x=>getColor(x.v)+'cc'),
+        borderColor:vals.map(x=>getColor(x.v)),
+        borderWidth:1,
+        borderRadius:2,
+      }]
+    },
+    options:{
+      indexAxis:'y',
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{
+        backgroundColor:'#16213e',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,
+        titleColor:'#e8eaf6',bodyColor:'#8892b0',
+        callbacks:{label:c=>` AQI ${c.parsed.x} · ${getCat(c.parsed.x)}`}
+      }},
+      scales:{
+        x:{ticks:{color:'#8892b0',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'}},
+        y:{ticks:{color:'#8892b0',font:{size:10}},grid:{display:false}}
+      }
+    }
+  });
+}
+
+// ── DONUT ──
+function renderDonut(){
+  const ctx=document.getElementById('donutChart');
+  if(donutChartInst){donutChartInst.destroy();}
+  const states=getFilteredStates();
+  const cats={Good:0,Satisfactory:0,Moderate:0,Poor:0,'Very poor':0,Severe:0};
+  states.forEach(s=>{ cats[getCat(AQI_DATA[s][selYear])]++; });
+  const labels=Object.keys(cats).filter(k=>cats[k]>0);
+  const vals=labels.map(k=>cats[k]);
+  const colors={'Good':'#27ae60','Satisfactory':'#7dbb3b','Moderate':'#f1c40f','Poor':'#e67e22','Very poor':'#e74c3c','Severe':'#8e44ad'};
+
+  donutChartInst=new Chart(ctx,{
+    type:'doughnut',
+    data:{labels,datasets:[{data:vals,backgroundColor:labels.map(l=>colors[l]+'cc'),borderColor:labels.map(l=>colors[l]),borderWidth:1}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{
+        backgroundColor:'#16213e',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,
+        titleColor:'#e8eaf6',bodyColor:'#8892b0',
+      }},
+      cutout:'65%',
+    }
+  });
+
+  const total=vals.reduce((a,v)=>a+v,0);
+  document.getElementById('donutLegend').innerHTML=labels.map((l,i)=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+      <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:#8892b0">
+        <div style="width:8px;height:8px;border-radius:1px;background:${colors[l]};flex-shrink:0"></div>${l}
+      </div>
+      <span style="font-size:10px;color:#e8eaf6;font-weight:600">${vals[i]} <span style="color:#8892b0;font-weight:400">(${Math.round(vals[i]/total*100)}%)</span></span>
+    </div>`).join('');
+}
+
+// ── TABLE ──
+function renderTable(){
+  const states=getFilteredStates();
+  const rows=states.map(s=>({s,v:AQI_DATA[s][selYear],prev:selYear>2015?AQI_DATA[s][selYear-1]:null}));
+  rows.sort((a,b)=>b.v-a.v);
+  const max=rows[0]?.v||1;
+  const catColors={Good:'#27ae60',Satisfactory:'#7dbb3b',Moderate:'#f1c40f',Poor:'#e67e22','Very poor':'#e74c3c',Severe:'#8e44ad'};
+
+  document.getElementById('stateTableBody').innerHTML=rows.map((r,i)=>{
+    const cat=getCat(r.v);
+    const chg=r.prev?r.v-r.prev:null;
+    const chgStr=chg!==null?(chg<0?`<span style="color:#27ae60">↓${Math.abs(chg)}</span>`:`<span style="color:#e74c3c">↑${chg}</span>`):'—';
+    return `<tr>
+      <td style="color:#8892b0">${i+1}</td>
+      <td style="font-weight:500">${r.s}</td>
+      <td style="font-weight:700;color:${getColor(r.v)}">${r.v}</td>
+      <td><span class="aqi-pill" style="background:${catColors[cat]}22;color:${catColors[cat]};border:1px solid ${catColors[cat]}44">${cat}</span></td>
+      <td>${chgStr}</td>
+      <td><div class="bar-cell"><div class="bar-mini" style="width:${Math.round(r.v/max*80)}px;background:${getColor(r.v)}"></div></div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── GAUGES ──
+function drawArc(canvasId,pct,color,label){
+  const c=document.getElementById(canvasId);
+  if(!c)return;
+  const ctx=c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  const cx=c.width/2,cy=c.height-8,r=34;
+  ctx.beginPath();
+  ctx.arc(cx,cy,r,Math.PI,2*Math.PI);
+  ctx.strokeStyle='rgba(255,255,255,0.08)';
+  ctx.lineWidth=7;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx,cy,r,Math.PI,Math.PI+Math.PI*Math.min(pct,1));
+  ctx.strokeStyle=color;
+  ctx.lineWidth=7;
+  ctx.lineCap='round';
+  ctx.stroke();
+}
+
+function renderGauges(){
+  const states=getFilteredStates();
+  const vals=states.map(s=>({s,v:AQI_DATA[s][selYear]})).sort((a,b)=>a.v-b.v);
+  const best=vals[0]||{s:'—',v:0};
+  const worst=vals[vals.length-1]||{s:'—',v:500};
+  const nat=NATIONAL[selYear];
+  const prev=selYear>2015?NATIONAL[selYear-1]:nat;
+  const chg=nat-prev;
+
+  drawArc('gauge1',best.v/500,getColor(best.v),best.s);
+  document.getElementById('gv1').textContent=best.v;
+  document.getElementById('gv1').style.color=getColor(best.v);
+  document.getElementById('gc1').textContent=best.s;
+  document.getElementById('gc1').style.background=getColor(best.v)+'33';
+  document.getElementById('gc1').style.color=getColor(best.v);
+
+  drawArc('gauge2',worst.v/500,getColor(worst.v),worst.s);
+  document.getElementById('gv2').textContent=worst.v;
+  document.getElementById('gv2').style.color=getColor(worst.v);
+  document.getElementById('gc2').textContent=worst.s;
+  document.getElementById('gc2').style.background=getColor(worst.v)+'33';
+  document.getElementById('gc2').style.color=getColor(worst.v);
+
+  const chgPct=Math.abs(chg)/50;
+  const chgColor=chg<0?'#27ae60':'#e74c3c';
+  drawArc('gauge3',chgPct,chgColor,'');
+  document.getElementById('gv3').textContent=(chg<0?'↓':'+')+(chg);
+  document.getElementById('gv3').style.color=chgColor;
+  document.getElementById('gc3').textContent='vs '+(selYear-1);
+  document.getElementById('gc3').style.background=chgColor+'33';
+  document.getElementById('gc3').style.color=chgColor;
+}
+
+document.getElementById('catFilter').addEventListener('change',refresh);
+document.getElementById('lastRefresh').textContent='Last refreshed: '+new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+
+refresh();
+</script>
+</body>
+</html>
